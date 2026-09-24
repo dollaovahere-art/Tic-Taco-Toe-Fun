@@ -1,14 +1,9 @@
-// 1. Establish Secure Realtime Connection 
-const SUPABASE_URL = "https://supabase.co"; 
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6...";
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// Application State Database
+// Standalone Local Application Engine (No external keys or setup required)
 const state = {
     username: 'Player ' + Math.floor(Math.random() * 100),
     currentRoom: 1,
     roomsData: {},
-    isSinglePlayer: false, // Enforces 2-player multiplayer turn-taking by default
+    isSinglePlayer: false, 
     isPaused: false,
     board: Array(9).fill(''),
     currentTurn: 'X',
@@ -17,12 +12,14 @@ const state = {
     scores: { X: 0, O: 0, ties: 0 }
 };
 
-// Initialize clean empty data structures for all 7 rooms
+// Initialize clean empty tracking structures for all 7 independent rooms natively
 for (let i = 1; i <= 7; i++) {
-    state.roomsData[i] = { spectatorsCount: 0, messages: [] };
+    state.roomsData[i] = {
+        messages: [
+            { user: 'System', text: `Welcome to Chat Room ${i}! Share your live text thoughts here.` }
+        ]
+    };
 }
-
-let realtimeChannel = null;
 
 // Target DOM nodes
 const DOM = {
@@ -63,7 +60,7 @@ function init() {
     if (DOM.usernameInput) DOM.usernameInput.value = state.username;
     renderRoomsList();
     setupEventListeners();
-    connectToRoomChannel(1); // Join room 1 on startup
+    switchRoom(1);
 }
 
 function setupEventListeners() {
@@ -74,56 +71,21 @@ function setupEventListeners() {
     DOM.closeRules.addEventListener('click', () => DOM.rulesModal.classList.add('hidden'));
     DOM.btnSendChat.addEventListener('click', sendChatMessage);
     DOM.btnBlockChat.addEventListener('click', toggleChatBlock);
-    DOM.btnReset.addEventListener('click', broadcastReset);
+    DOM.btnReset.addEventListener('click', localReset);
     if (DOM.btnSaveUsername) DOM.btnSaveUsername.addEventListener('click', updateUsername);
     DOM.chatInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendChatMessage(); });
 }
 
-// Realtime Synchronizer Pipeline
-function connectToRoomChannel(roomNum) {
-    if (realtimeChannel) {
-        supabaseClient.removeChannel(realtimeChannel);
-    }
-
+function switchRoom(roomNum) {
     state.currentRoom = roomNum;
     DOM.roomTitle.textContent = `Room ${roomNum}`;
     
-    // Create an isolated room sync pipeline channel
-    realtimeChannel = supabaseClient.channel(`room_${roomNum}`, {
-        config: { broadcast: { self: true } }
-    });
-
-    // Listen for incoming actions securely
-    realtimeChannel
-        .on('broadcast', { event: 'move' }, payload => {
-            const idx = payload.payload.index;
-            const playerToken = payload.payload.player;
-            
-            // Sync move locally on cell coordinate criteria
-            executeMove(idx, playerToken);
-            
-            if (!evaluateGameOutcome()) {
-                // Switch turn tracker state for next live user click action
-                state.currentTurn = playerToken === 'X' ? 'O' : 'X';
-                DOM.gameStatus.textContent = `Player ${state.currentTurn}'s Turn`;
-            }
-        })
-        .on('broadcast', { event: 'chat' }, payload => {
-            // Append incoming message safely to local memory
-            state.roomsData[state.currentRoom].messages.push(payload.payload);
-            renderChatHistory();
-        })
-        .on('broadcast', { event: 'reset' }, payload => {
-            localReset();
-        })
-        .subscribe();
-
+    // Simulate updating room count badge text dynamically 
+    DOM.roomOccupancy.textContent = `Users: ${Math.floor(Math.random() * 4) + 2}`;
+    
+    localReset();
     renderRoomsList();
     renderChatHistory();
-}
-
-function switchRoom(roomNum) {
-    connectToRoomChannel(roomNum);
 }
 
 function renderRoomsList() {
@@ -141,19 +103,17 @@ function handleCellClick(cell) {
     const index = cell.getAttribute('data-index');
     if (state.board[index] !== '' || !state.isGameActive || state.isPaused) return;
 
+    executeMove(index, state.currentTurn);
+
+    if (evaluateGameOutcome()) return;
+
     if (state.isSinglePlayer) {
-        executeMove(index, state.currentTurn);
-        if (evaluateGameOutcome()) return;
         state.currentTurn = 'O';
         DOM.gameStatus.textContent = "AI Processing Move...";
         setTimeout(executeAIMove, 500);
     } else {
-        // Online Mode: Send coordinates to all room participants taking turns
-        realtimeChannel.send({
-            type: 'broadcast',
-            event: 'move',
-            payload: { index: index, player: state.currentTurn }
-        });
+        state.currentTurn = state.currentTurn === 'X' ? 'O' : 'X';
+        DOM.gameStatus.textContent = `Player ${state.currentTurn}'s Turn`;
     }
 }
 
@@ -222,22 +182,9 @@ function sendChatMessage() {
     const value = DOM.chatInput.value.trim();
     if (!value) return;
 
-    // Send the structured human typed message object directly to the channel
-    realtimeChannel.send({
-        type: 'broadcast',
-        event: 'chat',
-        payload: { user: state.username, text: value }
-    });
-    
+    state.roomsData[state.currentRoom].messages.push({ user: state.username, text: value });
     DOM.chatInput.value = '';
-}
-
-function broadcastReset() {
-    if (state.isSinglePlayer) {
-        localReset();
-    } else {
-        realtimeChannel.send({ type: 'broadcast', event: 'reset', payload: {} });
-    }
+    renderChatHistory();
 }
 
 function localReset() {
@@ -272,7 +219,7 @@ function renderChatHistory() {
 
 function toggleGameMode() {
     state.isSinglePlayer = !state.isSinglePlayer;
-    DOM.modeToggle.textContent = state.isSinglePlayer ? "Switch to Live Multiplayer" : "Switch to Single Player";
+    DOM.modeToggle.textContent = state.isSinglePlayer ? "Switch to 2-Player Pass Mode" : "Switch to Single Player";
     DOM.pauseBtn.classList.toggle('hidden', !state.isSinglePlayer);
     localReset();
 }
@@ -284,3 +231,13 @@ function togglePause() {
     DOM.gameStatus.textContent = state.isPaused ? "Game Paused" : `Player ${state.currentTurn}'s Turn`;
 }
 
+function toggleChatBlock() {
+    state.chatBlocked = !state.chatBlocked;
+    DOM.btnBlockChat.textContent = state.chatBlocked ? "Unblock Chat" : "Block Chat";
+    DOM.btnBlockChat.classList.toggle('active', state.chatBlocked);
+    DOM.chatMessages.classList.toggle('chat-blocked', state.chatBlocked);
+    DOM.chatInput.disabled = state.chatBlocked;
+    DOM.btnSendChat.disabled = state.chatBlocked;
+}
+
+init();
