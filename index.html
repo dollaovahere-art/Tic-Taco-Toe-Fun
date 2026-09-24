@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Tic-Tac-Toe Arena</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Flashing Win Banner Container -->
+    <div id="win-banner" class="win-banner hidden">WIN</div>
+
+    <div class="app-container">
+        <!-- Sidebar: Room Navigator & Info -->
+        <aside class="sidebar">
+            <h2>Game Lobby</h2>
+            <div class="mode-selector">
+                <button id="btn-mode-toggle" class="btn-primary">Switch to 2-Player Mode</button>
+                <button id="btn-pause" class="btn-secondary hidden">Pause Game</button>
+            </div>
+            
+            <div class="room-list">
+                <h3>Active Rooms</h3>
+                <div id="rooms-container"></div>
+            </div>
+
+            <div class="controls-footer">
+                <button id="btn-rules" class="btn-info">Game Rules</button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area: Board and Arena -->
+        <main class="game-arena">
+            <header class="arena-header">
+                <h2 id="current-room-title">Room 1</h2>
+                <div id="room-occupancy" class="occupancy-badge">Users: 2</div>
+            </header>
+
+            <div class="status-bar" id="game-status">Player X's Turn</div>
+
+            <!-- Tic-Tac-Toe Grid -->
+            <div class="board" id="game-board">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+            </div>
+
+            <!-- Live Score Tracker -->
+            <section class="scoreboard">
+                <div class="score-card">
+                    <span class="score-label">Player X Wins</span>
+                    <span id="score-x-wins" class="score-val">0</span>
+                </div>
+                <div class="score-card">
+                    <span class="score-label">Player O Wins</span>
+                    <span id="score-o-wins" class="score-val">0</span>
+                </div>
+                <div class="score-card">
+                    <span class="score-label">Ties / Draws</span>
+                    <span id="score-ties" class="score-val">0</span>
+                </div>
+            </section>
+            
+            <button id="btn-reset" class="btn-secondary">Reset Board</button>
+        </main>
+
+        <!-- Right Component: Unified Chat System -->
+        <section class="chat-system">
+            <header class="chat-header">
+                <h3>Room Live Feed</h3>
+                <button id="btn-block-chat" class="btn-danger-sm">Block Chat</button>
+            </header>
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Type a message as a spectator..." />
+                <button id="btn-send-chat">Send</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Interactive Rules Modal Overlay -->
+    <div id="rules-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal" id="close-rules">&times;</span>
+            <h2>How to Play Tic-Tac-Toe</h2>
+            <p>1. The game is played on a grid that's 3 squares by 3 squares.</p>
+            <p>2. You are <strong>Navy Blue (X)</strong>, and your opponent is <strong>Red (O)</strong>.</p>
+            <p>3. The first player to get 3 of their marks in a row (up, down, across, or diagonally) is the winner.</p>
+            <p>4. When all 9 squares are full, the game is over. If no player has 3 marks in a row, the game ends in a tie.</p>
+            <p>5. Single-Player mode lets you play against an AI opponent and allows you to pause the match.</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
