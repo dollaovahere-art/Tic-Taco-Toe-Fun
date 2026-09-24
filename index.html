@@ -14,6 +14,16 @@
         <!-- Sidebar: Room Navigator & Info -->
         <aside class="sidebar">
             <h2>Game Lobby</h2>
+            
+            <!-- Custom Profile Section Styles -->
+            <div class="profile-section">
+                <label for="username-input">Your Display Name:</label>
+                <div class="profile-input-group">
+                    <input type="text" id="username-input" value="Player 1" placeholder="Enter name...">
+                    <button id="btn-save-username" class="btn-info-sm">Save</button>
+                </div>
+            </div>
+
             <div class="mode-selector">
                 <button id="btn-mode-toggle" class="btn-primary">Switch to 2-Player Mode</button>
                 <button id="btn-pause" class="btn-secondary hidden">Pause Game</button>
@@ -73,12 +83,12 @@
         <!-- Right Component: Unified Chat System -->
         <section class="chat-system">
             <header class="chat-header">
-                <h3>Room Live Feed</h3>
+                <h3>Chat Room</h3>
                 <button id="btn-block-chat" class="btn-danger-sm">Block Chat</button>
             </header>
             <div id="chat-messages" class="chat-messages"></div>
             <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Type a message as a spectator..." />
+                <input type="text" id="chat-input" placeholder="Type a message..." />
                 <button id="btn-send-chat">Send</button>
             </div>
         </section>
@@ -97,13 +107,8 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
-</body>
-</html>
-    <!-- Make sure this Supabase script is placed FIRST -->
-    <script src="https://jsdelivr.net"></script>
-
-    <!-- Make sure your app script is placed SECOND -->
-    <script src="app.js"></script>
+    <!-- CORRECTED SCRIPT TAGS (Using full CDN address with 'defer' safety locks) -->
+    <script defer src="https://jsdelivr.net"></script>
+    <script defer src="app.js"></script>
 </body>
 </html>
