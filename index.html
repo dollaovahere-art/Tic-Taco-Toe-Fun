@@ -108,7 +108,9 @@
     </div>
 
     <!-- CORRECTED SCRIPT TAGS (Using full CDN address with 'defer' safety locks) -->
-    <script defer src="https://jsdelivr.net"></script>
+        <!-- Switched from jsDelivr to the unpkg network to bypass connection timeouts -->
+    <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script defer src="app.js"></script>
 </body>
 </html>
+
