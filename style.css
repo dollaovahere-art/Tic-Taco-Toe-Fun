@@ -21,10 +21,10 @@ body {
     color: var(--text-dark);
     height: 100vh;
     width: 100vw;
-    overflow: hidden; /* Eliminates external scrolling */
+    overflow: hidden; /* Strict viewport container lock */
 }
 
-/* Master Grid Structure across screens */
+/* Master Grid Structure across desktop/laptop screens */
 .app-container {
     display: grid;
     grid-template-columns: 240px 1fr 320px;
@@ -36,11 +36,51 @@ body {
 .sidebar {
     background-color: var(--sidebar-bg);
     color: #FFFFFF;
-    padding: 20px;
+    padding: 15px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
     border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+}
+
+.profile-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+.profile-section label {
+    color: #94A3B8;
+    font-weight: 500;
+}
+.profile-input-group {
+    display: flex;
+    gap: 6px;
+}
+#username-input {
+    flex: 1;
+    background: #0F172A;
+    border: 1px solid #475569;
+    border-radius: 4px;
+    color: white;
+    padding: 6px;
+    font-size: 0.85rem;
+}
+#username-input:focus {
+    outline: none;
+    border-color: var(--win-blue);
+}
+.btn-info-sm {
+    background-color: #0EA5E9;
+    color: white;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .mode-selector, .room-list {
@@ -49,6 +89,7 @@ body {
     gap: 10px;
 }
 
+/* Added explicit margin-left to space out the user count display badges */
 .room-btn {
     background: #334155;
     color: white;
@@ -59,7 +100,17 @@ body {
     cursor: pointer;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     transition: background 0.2s;
+}
+.room-btn span {
+    flex: 1;
+}
+.room-btn small {
+    margin-left: 20px; /* Space over display for users inside active rooms section */
+    background: rgba(0, 0, 0, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
 .room-btn.active, .room-btn:hover {
@@ -73,8 +124,9 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    padding: 25px;
+    padding: 15px;
     background-color: #FFFFFF;
+    overflow: hidden;
 }
 
 .arena-header {
@@ -83,13 +135,13 @@ body {
     justify-content: space-between;
     align-items: center;
     border-bottom: 2px solid var(--bg-light);
-    padding-bottom: 10px;
+    padding-bottom: 5px;
 }
 
 .status-bar {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     font-weight: 600;
-    margin: 10px 0;
+    margin: 5px 0;
 }
 
 /* Responsive Grid Board */
@@ -98,8 +150,8 @@ body {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
     gap: 8px;
-    width: 320px;
-    height: 320px;
+    width: 300px;
+    height: 300px;
     background-color: var(--border-color);
     border-radius: 8px;
     padding: 8px;
@@ -111,7 +163,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3rem;
+    font-size: 2.5rem;
     font-weight: 800;
     cursor: pointer;
     user-select: none;
@@ -120,18 +172,17 @@ body {
 .cell.x { color: var(--navy-blue); }
 .cell.o { color: var(--red-o); }
 
-/* Unified Chat Engine Frame */
+/* Chat Room Interface Frame */
 .chat-system {
     display: flex;
     flex-direction: column;
     background: #F8FAFC;
     border-left: 1px solid var(--border-color);
     height: 100%;
-    max-height: 100vh; /* Prevents overflow pushing elements down */
 }
 
 .chat-header {
-    padding: 15px;
+    padding: 12px 15px;
     background: #FFFFFF;
     border-bottom: 1px solid var(--border-color);
     display: flex;
@@ -209,32 +260,109 @@ button { padding: 10px 15px; border-radius: 6px; border: none; cursor: pointer; 
 .btn-danger-sm.active { background-color: #10B981; }
 .btn-info { background-color: #0EA5E9; color: white; }
 
-.scoreboard { display: flex; gap: 15px; width: 100%; justify-content: center; margin: 10px 0; }
-.score-card { background: var(--bg-light); padding: 10px; border-radius: 6px; text-align: center; min-width: 90px; }
-.score-label { display: block; font-size: 0.75rem; color: #64748B; text-transform: uppercase; }
-.score-val { font-size: 1.25rem; font-weight: bold; }
+.scoreboard { display: flex; gap: 10px; width: 100%; justify-content: center; margin: 5px 0; }
+.score-card { background: var(--bg-light); padding: 8px; border-radius: 6px; text-align: center; min-width: 85px; }
+.score-label { display: block; font-size: 0.70rem; color: #64748B; text-transform: uppercase; }
+.score-val { font-size: 1.1rem; font-weight: bold; }
 
-/* Tablet & Mobile Media Breakpoints matching requirement #11 and #12 */
-@media (max-width: 850px) {
-    .app-container {
-        grid-template-columns: 180px 1fr;
-        grid-template-rows: auto 1fr;
-        height: 100vh;
+/* Strict CSS Breakpoints for cellphones to maintain view without scrolling */
+@media (max-width: 768px) {
+    body {
+        overflow: hidden;
     }
-    .chat-system {
-        grid-column: 1 / span 2;
-        height: 220px;
-    }
-}
-
-@media (max-width: 580px) {
     .app-container {
         display: flex;
         flex-direction: column;
-        overflow-y: auto;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
     }
-    .sidebar { width: 100%; height: auto; }
-    .game-arena { width: 100%; height: auto; padding: 15px; }
-    .board { width: 280px; height: 280px; }
-    .chat-system { width: 100%; height: 250px; }
+    .sidebar { 
+        width: 100%; 
+        height: 130px; 
+        flex-direction: row; 
+        overflow-x: auto; 
+        overflow-y: hidden;
+        white-space: nowrap;
+        padding: 8px;
+        gap: 10px;
+    }
+    .profile-section {
+        flex-direction: row;
+        align-items: center;
+        min-width: 250px;
+        height: 100%;
+    }
+    .profile-input-group {
+        flex-direction: row;
+    }
+    .room-list {
+        flex-direction: row;
+        align-items: center;
+    }
+    #rooms-container {
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+    }
+    .room-btn {
+        padding: 8px 12px;
+        min-width: 130px;
+    }
+    .mode-selector {
+        flex-direction: row;
+        align-items: center;
+    }
+    .controls-footer {
+        display: flex;
+        align-items: center;
+    }
+
+    .game-arena { 
+        flex: 1;
+        width: 100%; 
+        padding: 10px;
+        justify-content: space-around;
+        overflow: hidden;
+    }
+    .board { 
+        width: 230px; 
+        height: 230px; 
+        gap: 4px;
+        padding: 4px;
+    }
+    .cell {
+        font-size: 2rem;
+    }
+    .arena-header h2 {
+        font-size: 1.2rem;
+    }
+    .status-bar {
+        font-size: 1rem;
+        margin: 2px 0;
+    }
+    .scoreboard {
+        margin: 2px 0;
+    }
+    .score-card {
+        padding: 4px;
+        min-width: 70px;
+    }
+
+    .chat-system { 
+        width: 100%; 
+        height: 180px; 
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+    }
+    .chat-header {
+        padding: 6px 12px;
+    }
+    .chat-messages {
+        padding: 8px;
+        gap: 4px;
+    }
+    .chat-input-area {
+        padding: 6px;
+    }
 }

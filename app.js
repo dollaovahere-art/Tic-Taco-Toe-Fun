@@ -1,8 +1,14 @@
+// 1. Establish Secure Realtime Connection 
+const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL_HERE"; 
+const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // Application State Database
 const state = {
+    username: 'Player ' + Math.floor(Math.random() * 100),
     currentRoom: 1,
     roomsData: {},
-    isSinglePlayer: true,
+    isSinglePlayer: false, // Enforces 2-player multiplayer turn-taking by default
     isPaused: false,
     board: Array(9).fill(''),
     currentTurn: 'X',
@@ -11,19 +17,17 @@ const state = {
     scores: { X: 0, O: 0, ties: 0 }
 };
 
-// Initialize up to seven multi-rooms data properties
+// Initialize clean empty data structures for all 7 rooms
 for (let i = 1; i <= 7; i++) {
-    state.roomsData[i] = {
-        spectatorsCount: Math.floor(Math.random() * 4) + 1, // Random spectators generated safely
-        messages: [
-            { user: 'Spectator 1', text: 'Good luck match participants!' },
-            { user: 'Spectator 2', text: 'Excited to see this game layout setup.' }
-        ]
-    };
+    state.roomsData[i] = { spectatorsCount: 0, messages: [] };
 }
+
+let realtimeChannel = null;
 
 // Target DOM nodes
 const DOM = {
+    usernameInput: document.getElementById('username-input'),
+    btnSaveUsername: document.getElementById('btn-save-username'),
     modeToggle: document.getElementById('btn-mode-toggle'),
     pauseBtn: document.getElementById('btn-pause'),
     roomsContainer: document.getElementById('rooms-container'),
@@ -43,20 +47,23 @@ const DOM = {
     scoreX: document.getElementById('score-x-wins'),
     scoreO: document.getElementById('score-o-wins'),
     scoreTies: document.getElementById('score-ties'),
-    btnReset: document.getElementById('btn-reset')
+    btnReset: document.getElementById('btn-reset'),
+    chatHeaderTitle: document.querySelector('.chat-header h3')
 };
 
-const winConditions = [
-    [0,1,2], [3,4,5], [6,7,8], // Rows
-    [0,3,6], [1,4,7], [2,5,8], // Columns
-    [0,4,8], [2,4,6]           // Diagonals
+// Update header to read "Chat Room" directly programmatically
+if (DOM.chatHeaderTitle) {
+    DOM.chatHeaderTitle.textContent = "Chat Room";
+}
+
+const winConditions = [, [3, 4, 5], [6, 7, 8], // Rows, [1, 4, 7], [2, 5, 8], // Columns, [2, 4, 6]             // Diagonals
 ];
 
-// App Initialization
 function init() {
+    if (DOM.usernameInput) DOM.usernameInput.value = state.username;
     renderRoomsList();
-    switchRoom(1);
     setupEventListeners();
+    connectToRoomChannel(1); // Join room 1 on startup
 }
 
 function setupEventListeners() {
@@ -67,66 +74,101 @@ function setupEventListeners() {
     DOM.closeRules.addEventListener('click', () => DOM.rulesModal.classList.add('hidden'));
     DOM.btnSendChat.addEventListener('click', sendChatMessage);
     DOM.btnBlockChat.addEventListener('click', toggleChatBlock);
-    DOM.btnReset.addEventListener('click', resetBoard);
+    DOM.btnReset.addEventListener('click', broadcastReset);
+    if (DOM.btnSaveUsername) DOM.btnSaveUsername.addEventListener('click', updateUsername);
     DOM.chatInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendChatMessage(); });
 }
 
-// Room Rendering Engine
+// Realtime Synchronizer Pipeline
+function connectToRoomChannel(roomNum) {
+    if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+    }
+
+    state.currentRoom = roomNum;
+    DOM.roomTitle.textContent = `Room ${roomNum}`;
+    
+    // Create an isolated room sync pipeline channel
+    realtimeChannel = supabaseClient.channel(`room_${roomNum}`, {
+        config: { broadcast: { self: true } }
+    });
+
+    // Listen for incoming actions securely
+    realtimeChannel
+        .on('broadcast', { event: 'move' }, payload => {
+            const idx = payload.payload.index;
+            const playerToken = payload.payload.player;
+            
+            // Sync move locally on cell coordinate criteria
+            executeMove(idx, playerToken);
+            
+            if (!evaluateGameOutcome()) {
+                // Switch turn tracker state for next live user click action
+                state.currentTurn = playerToken === 'X' ? 'O' : 'X';
+                DOM.gameStatus.textContent = `Player ${state.currentTurn}'s Turn`;
+            }
+        })
+        .on('broadcast', { event: 'chat' }, payload => {
+            // Append incoming message safely to local memory
+            state.roomsData[state.currentRoom].messages.push(payload.payload);
+            renderChatHistory();
+        })
+        .on('broadcast', { event: 'reset' }, payload => {
+            localReset();
+        })
+        .subscribe();
+
+    renderRoomsList();
+    renderChatHistory();
+}
+
+function switchRoom(roomNum) {
+    connectToRoomChannel(roomNum);
+}
+
 function renderRoomsList() {
     DOM.roomsContainer.innerHTML = '';
     for (let i = 1; i <= 7; i++) {
-        const totalUsers = state.roomsData[i].spectatorsCount + 2; // Players + Spectators
         const btn = document.createElement('button');
         btn.className = `room-btn ${state.currentRoom === i ? 'active' : ''}`;
-        btn.innerHTML = `<span>Room ${i}</span> <small>👥 ${totalUsers}</small>`;
+        btn.innerHTML = `<span>Room ${i}</span> <small>👥 Live</small>`;
         btn.onclick = () => switchRoom(i);
         DOM.roomsContainer.appendChild(btn);
     }
 }
 
-function switchRoom(roomNum) {
-    state.currentRoom = roomNum;
-    DOM.roomTitle.textContent = `Room ${roomNum}`;
-    const currentRoomData = state.roomsData[roomNum];
-    DOM.roomOccupancy.textContent = `Users: ${currentRoomData.spectatorsCount + 2}`;
-    
-    renderRoomsList();
-    renderChatHistory();
-}
-
-// Game Rules Matrix Logic
 function handleCellClick(cell) {
     const index = cell.getAttribute('data-index');
     if (state.board[index] !== '' || !state.isGameActive || state.isPaused) return;
 
-    executeMove(index, state.currentTurn);
-
-    if (evaluateGameOutcome()) return;
-
     if (state.isSinglePlayer) {
+        executeMove(index, state.currentTurn);
+        if (evaluateGameOutcome()) return;
         state.currentTurn = 'O';
         DOM.gameStatus.textContent = "AI Processing Move...";
         setTimeout(executeAIMove, 500);
     } else {
-        state.currentTurn = state.currentTurn === 'X' ? 'O' : 'X';
-        DOM.gameStatus.textContent = `Player ${state.currentTurn}'s Turn`;
+        // Online Mode: Send coordinates to all room participants taking turns
+        realtimeChannel.send({
+            type: 'broadcast',
+            event: 'move',
+            payload: { index: index, player: state.currentTurn }
+        });
     }
 }
 
 function executeMove(index, player) {
     state.board[index] = player;
     DOM.cells[index].textContent = player;
-    DOM.cells[index].classList.add(player.toLowerCase());
+    DOM.cells[index].className = `cell ${player.toLowerCase()}`;
 }
 
 function executeAIMove() {
     if (!state.isGameActive || state.isPaused) return;
-    const availableIndices = state.board.map((val, idx) => val === '' ? idx : null).filter(v => v !== null);
-    
-    if (availableIndices.length > 0) {
-        const strategicChoice = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-        executeMove(strategicChoice, 'O');
-        
+    const available = state.board.map((v, i) => v === '' ? i : null).filter(v => v !== null);
+    if (available.length > 0) {
+        const choice = available[Math.floor(Math.random() * available.length)];
+        executeMove(choice, 'O');
         if (!evaluateGameOutcome()) {
             state.currentTurn = 'X';
             DOM.gameStatus.textContent = "Player X's Turn";
@@ -171,34 +213,34 @@ function triggerWinSequences(winner) {
         DOM.scoreO.textContent = state.scores.O;
     }
 
-    // Flashing banner notification setup
     DOM.winBanner.classList.remove('hidden');
     setTimeout(() => { DOM.winBanner.classList.add('hidden'); }, 4000);
 }
 
-// Operational Core Toggles
-function toggleGameMode() {
-    state.isSinglePlayer = !state.isSinglePlayer;
-    DOM.modeToggle.textContent = state.isSinglePlayer ? "Switch to 2-Player Mode" : "Switch to Single Player";
+function sendChatMessage() {
+    if (state.chatBlocked) return;
+    const value = DOM.chatInput.value.trim();
+    if (!value) return;
+
+    // Send the structured human typed message object directly to the channel
+    realtimeChannel.send({
+        type: 'broadcast',
+        event: 'chat',
+        payload: { user: state.username, text: value }
+    });
     
+    DOM.chatInput.value = '';
+}
+
+function broadcastReset() {
     if (state.isSinglePlayer) {
-        DOM.pauseBtn.classList.remove('hidden');
+        localReset();
     } else {
-        DOM.pauseBtn.classList.add('hidden');
-        state.isPaused = false;
-        DOM.pauseBtn.textContent = "Pause Game";
+        realtimeChannel.send({ type: 'broadcast', event: 'reset', payload: {} });
     }
-    resetBoard();
 }
 
-function togglePause() {
-    if (!state.isSinglePlayer) return;
-    state.isPaused = !state.isPaused;
-    DOM.pauseBtn.textContent = state.isPaused ? "Resume Game" : "Pause Game";
-    DOM.gameStatus.textContent = state.isPaused ? "Game Paused" : `Player ${state.currentTurn}'s Turn`;
-}
-
-function resetBoard() {
+function localReset() {
     state.board = Array(9).fill('');
     state.isGameActive = true;
     state.currentTurn = 'X';
@@ -209,7 +251,14 @@ function resetBoard() {
     });
 }
 
-// Shared Room Chat Pipeline Elements
+function updateUsername() {
+    const inputName = DOM.usernameInput.value.trim();
+    if (inputName) {
+        state.username = inputName;
+        alert(`Name saved as: ${state.username}`);
+    }
+}
+
 function renderChatHistory() {
     DOM.chatMessages.innerHTML = '';
     state.roomsData[state.currentRoom].messages.forEach(msg => {
@@ -221,35 +270,17 @@ function renderChatHistory() {
     DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
 }
 
-function sendChatMessage() {
-    if (state.chatBlocked) return;
-    const value = DOM.chatInput.value.trim();
-    if (!value) return;
-
-    // Incremental index names based on spectator counts
-    const spectatorId = `Spectator ${state.roomsData[state.currentRoom].spectatorsCount + 1}`;
-    state.roomsData[state.currentRoom].messages.push({ user: spectatorId, text: value });
-    
-    DOM.chatInput.value = '';
-    renderChatHistory();
+function toggleGameMode() {
+    state.isSinglePlayer = !state.isSinglePlayer;
+    DOM.modeToggle.textContent = state.isSinglePlayer ? "Switch to Live Multiplayer" : "Switch to Single Player";
+    DOM.pauseBtn.classList.toggle('hidden', !state.isSinglePlayer);
+    localReset();
 }
 
-function toggleChatBlock() {
-    state.chatBlocked = !state.chatBlocked;
-    if (state.chatBlocked) {
-        DOM.btnBlockChat.textContent = "Unblock Chat";
-        DOM.btnBlockChat.classList.add('active');
-        DOM.chatMessages.classList.add('chat-blocked');
-        DOM.chatInput.disabled = true;
-        DOM.btnSendChat.disabled = true;
-    } else {
-        DOM.btnBlockChat.textContent = "Block Chat";
-        DOM.btnBlockChat.classList.remove('active');
-        DOM.chatMessages.classList.remove('chat-blocked');
-        DOM.chatInput.disabled = false;
-        DOM.btnSendChat.disabled = false;
-    }
+function togglePause() {
+    if (!state.isSinglePlayer) return;
+    state.isPaused = !state.isPaused;
+    DOM.pauseBtn.textContent = state.isPaused ? "Resume Game" : "Pause Game";
+    DOM.gameStatus.textContent = state.isPaused ? "Game Paused" : `Player ${state.currentTurn}'s Turn`;
 }
 
-// Start core system process routines
-init();
