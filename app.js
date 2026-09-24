@@ -1,6 +1,6 @@
 // 1. Establish Secure Realtime Connection 
-const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL_HERE"; 
-const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+const SUPABASE_URL = "https://supabase.co"; 
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6...";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Application State Database
